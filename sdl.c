@@ -14,7 +14,7 @@ int main() {
   color.b=0;
   printf("run\n");
   SDL_Init(SDL_INIT_VIDEO);
-  SDL_Surface *screen = SDL_SetVideoMode(256, 256, 32, SDL_SWSURFACE);
+  SDL_Surface *screen = SDL_SetVideoMode(800, 640, 32, SDL_SWSURFACE);
 #ifdef TEST_SDL_LOCK_OPTS
   EM_ASM("SDL.defaults.copyOnLock = false; SDL.defaults.discardOnLock = true; SDL.defaults.opaqueFrontBuffer = false;");
 #endif
