@@ -6089,6 +6089,7 @@ var ASM_CONSTS = {
       setMainLoop(browserIterationFunc, fps, simulateInfiniteLoop);
     }
 
+
   function flush_NO_FILESYSTEM() {
       // flush anything remaining in the buffers during shutdown
       ___stdio_exit();
@@ -6359,6 +6360,7 @@ var asmLibraryArg = {
   "emscripten_memcpy_big": _emscripten_memcpy_big,
   "emscripten_resize_heap": _emscripten_resize_heap,
   "emscripten_set_main_loop": _emscripten_set_main_loop,
+  "emscripten_set_main_loop_timing": _emscripten_set_main_loop_timing,
   "fd_write": _fd_write,
   "setTempRet0": _setTempRet0
 };

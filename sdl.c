@@ -65,6 +65,7 @@ int main() {
 #endif
     
   emscripten_set_main_loop(kernel_main,1,0);
+  int i=emscripten_set_main_loop_timing(0,60);
   printf("\n\nrender\n ");
   
   
