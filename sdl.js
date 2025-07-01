@@ -5881,23 +5881,6 @@ var ASM_CONSTS = {
       return r&0xff|(g&0xff)<<8|(b&0xff)<<16|0xff000000;
     }
 
-  function _SDL_AudioQuit() {
-      for (var i = 0; i < SDL.numChannels; ++i) {
-        var chan = /** @type {{ audio: (HTMLMediaElement|undefined) }} */ (SDL.channels[i]);
-        if (chan.audio) {
-          chan.audio.pause();
-          chan.audio = undefined;
-        }
-      }
-      var audio = /** @type {HTMLMediaElement} */ (SDL.music.audio);
-      if (audio) audio.pause();
-      SDL.music.audio = undefined;
-    }
-  function _SDL_Quit() {
-      _SDL_AudioQuit();
-      out('SDL_Quit called (and ignored)');
-    }
-
   function __webgl_enable_ANGLE_instanced_arrays(ctx) {
       // Extension available in WebGL 1 from Firefox 26 and Google Chrome 30 onwards. Core feature in WebGL 2.
       var ext = ctx.getExtension('ANGLE_instanced_arrays');
@@ -6099,6 +6082,11 @@ var ASM_CONSTS = {
       var oldSize = HEAPU8.length;
       requestedSize = requestedSize >>> 0;
       abortOnCannotGrowMemory(requestedSize);
+    }
+
+  function _emscripten_set_main_loop(func, fps, simulateInfiniteLoop) {
+      var browserIterationFunc = getWasmTableEntry(func);
+      setMainLoop(browserIterationFunc, fps, simulateInfiniteLoop);
     }
 
   function flush_NO_FILESYSTEM() {
@@ -6367,10 +6355,10 @@ var asmLibraryArg = {
   "SDL_Flip": _SDL_Flip,
   "SDL_Init": _SDL_Init,
   "SDL_MapRGB": _SDL_MapRGB,
-  "SDL_Quit": _SDL_Quit,
   "SDL_SetVideoMode": _SDL_SetVideoMode,
   "emscripten_memcpy_big": _emscripten_memcpy_big,
   "emscripten_resize_heap": _emscripten_resize_heap,
+  "emscripten_set_main_loop": _emscripten_set_main_loop,
   "fd_write": _fd_write,
   "setTempRet0": _setTempRet0
 };
