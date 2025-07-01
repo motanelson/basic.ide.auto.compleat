@@ -5797,6 +5797,34 @@ var ASM_CONSTS = {
         }
         return null;
       }};
+  function _SDL_FillRect(surf, rect, color) {
+      var surfData = SDL.surfaces[surf];
+      assert(!surfData.locked); // but we could unlock and re-lock if we must..
+  
+      if (surfData.isFlagSet(0x00200000 /* SDL_HWPALETTE */)) {
+        //in SDL_HWPALETTE color is index (0..255)
+        //so we should translate 1 byte value to
+        //32 bit canvas
+        color = surfData.colors32[color];
+      }
+  
+      var r = rect ? SDL.loadRect(rect) : { x: 0, y: 0, w: surfData.width, h: surfData.height };
+  
+      if (surfData.clipRect) {
+        r = SDL.intersectionOfRects(surfData.clipRect, r);
+  
+        if (rect) {
+          SDL.updateRect(rect, r);
+        }
+      }
+  
+      surfData.ctx.save();
+      surfData.ctx.fillStyle = SDL.translateColorToCSSRGBA(color);
+      surfData.ctx.fillRect(r.x, r.y, r.w, r.h);
+      surfData.ctx.restore();
+      return 0;
+    }
+
   function _SDL_Flip(surf) {
       // We actually do this in Unlock, since the screen surface has as its canvas
       // backing the page canvas element
@@ -5847,11 +5875,10 @@ var ASM_CONSTS = {
       return 0; // success
     }
 
-
-  function _SDL_MapRGBA(fmt, r, g, b, a) {
+  function _SDL_MapRGB(fmt, r, g, b) {
       SDL.checkPixelFormat(fmt);
       // We assume the machine is little-endian.
-      return r&0xff|(g&0xff)<<8|(b&0xff)<<16|(a&0xff)<<24;
+      return r&0xff|(g&0xff)<<8|(b&0xff)<<16|0xff000000;
     }
 
   function _SDL_AudioQuit() {
@@ -6055,111 +6082,6 @@ var ASM_CONSTS = {
       SDL.screen = SDL.makeSurface(width, height, flags, true, 'screen');
   
       return SDL.screen;
-    }
-
-  function _SDL_UnlockSurface(surf) {
-      assert(!SDL.GL); // in GL mode we do not keep around 2D canvases and contexts
-  
-      var surfData = SDL.surfaces[surf];
-  
-      if (!surfData.locked || --surfData.locked > 0) {
-        return;
-      }
-  
-      // Copy pixel data to image
-      if (surfData.isFlagSet(0x00200000 /* SDL_HWPALETTE */)) {
-        SDL.copyIndexedColorData(surfData);
-      } else if (!surfData.colors) {
-        var data = surfData.image.data;
-        var buffer = surfData.buffer;
-        assert(buffer % 4 == 0, 'Invalid buffer offset: ' + buffer);
-        var src = buffer >> 2;
-        var dst = 0;
-        var isScreen = surf == SDL.screen;
-        var num;
-        if (typeof CanvasPixelArray != 'undefined' && data instanceof CanvasPixelArray) {
-          // IE10/IE11: ImageData objects are backed by the deprecated CanvasPixelArray,
-          // not UInt8ClampedArray. These don't have buffers, so we need to revert
-          // to copying a byte at a time. We do the undefined check because modern
-          // browsers do not define CanvasPixelArray anymore.
-          num = data.length;
-          while (dst < num) {
-            var val = HEAP32[src]; // This is optimized. Instead, we could do HEAP32[(((buffer)+(dst))>>2)];
-            data[dst  ] = val & 0xff;
-            data[dst+1] = (val >> 8) & 0xff;
-            data[dst+2] = (val >> 16) & 0xff;
-            data[dst+3] = isScreen ? 0xff : ((val >> 24) & 0xff);
-            src++;
-            dst += 4;
-          }
-        } else {
-          var data32 = new Uint32Array(data.buffer);
-          if (isScreen && SDL.defaults.opaqueFrontBuffer) {
-            num = data32.length;
-            // logically we need to do
-            //      while (dst < num) {
-            //          data32[dst++] = HEAP32[src++] | 0xff000000
-            //      }
-            // the following code is faster though, because
-            // .set() is almost free - easily 10x faster due to
-            // native memcpy efficiencies, and the remaining loop
-            // just stores, not load + store, so it is faster
-            data32.set(HEAP32.subarray(src, src + num));
-            var data8 = new Uint8Array(data.buffer);
-            var i = 3;
-            var j = i + 4*num;
-            if (num % 8 == 0) {
-              // unrolling gives big speedups
-              while (i < j) {
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-              }
-             } else {
-              while (i < j) {
-                data8[i] = 0xff;
-                i = i + 4 | 0;
-              }
-            }
-          } else {
-            data32.set(HEAP32.subarray(src, src + data32.length));
-          }
-        }
-      } else {
-        var width = Module['canvas'].width;
-        var height = Module['canvas'].height;
-        var s = surfData.buffer;
-        var data = surfData.image.data;
-        var colors = surfData.colors; // TODO: optimize using colors32
-        for (var y = 0; y < height; y++) {
-          var base = y*width*4;
-          for (var x = 0; x < width; x++) {
-            // See comment above about signs
-            var val = HEAPU8[((s++)>>0)] * 4;
-            var start = base + x*4;
-            data[start]   = colors[val];
-            data[start+1] = colors[val+1];
-            data[start+2] = colors[val+2];
-          }
-          s += width*3;
-        }
-      }
-      // Copy to canvas
-      surfData.ctx.putImageData(surfData.image, 0, 0);
-      // Note that we save the image, so future writes are fast. But, memory is not yet released
     }
 
   function _emscripten_memcpy_big(dest, src, num) {
@@ -6441,13 +6363,12 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('fetchSettings');
 }
 var asmLibraryArg = {
+  "SDL_FillRect": _SDL_FillRect,
   "SDL_Flip": _SDL_Flip,
   "SDL_Init": _SDL_Init,
-  "SDL_LockSurface": _SDL_LockSurface,
-  "SDL_MapRGBA": _SDL_MapRGBA,
+  "SDL_MapRGB": _SDL_MapRGB,
   "SDL_Quit": _SDL_Quit,
   "SDL_SetVideoMode": _SDL_SetVideoMode,
-  "SDL_UnlockSurface": _SDL_UnlockSurface,
   "emscripten_memcpy_big": _emscripten_memcpy_big,
   "emscripten_resize_heap": _emscripten_resize_heap,
   "fd_write": _fd_write,
