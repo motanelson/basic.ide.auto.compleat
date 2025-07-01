@@ -13,10 +13,18 @@
 #include <emscripten.h>
 SDL_Surface *screen = NULL;
 int i=100;
+int x=0;
+int y=0;
+int xxx=10;
+int yyy=10;
 void kernel_main(){
+  int xx=x+20;
+  int yy=y+20;
+  
   SDL_Color color;
   SDL_Color color2;
-  SDL_Rect outlineRect= { 100, 100, 100, 100 };
+  SDL_Rect outlineRect= { xx, y, 70, 110 };
+  SDL_Rect outlineRect3= { x, yy, 110, 70 };
   SDL_Rect outlineRect2= { 0, 0, 800, 600 };
   color.r=255;
   color.g=255;
@@ -24,16 +32,19 @@ void kernel_main(){
   color2.r=0;
   color2.g=0;
   color2.b=0;
-  if (i< 500){
-     i=i+10;
-
-     outlineRect.y=i;
-     outlineRect.x=i;
+       
+     
      SDL_FillRect( screen, &outlineRect2 ,SDL_MapRGB(screen->format, color2.r, color2.g, color2.b));     
      SDL_FillRect( screen, &outlineRect ,SDL_MapRGB(screen->format, color.r, color.g, color.b));
- 
+     SDL_FillRect( screen, &outlineRect3 ,SDL_MapRGB(screen->format, color.r, color.g, color.b));
      SDL_Flip(screen);
-   }
+     if(x>690)xxx=-10;
+     if (y>490)yyy=-10;
+     if(x<10)xxx=10;
+     if (y<10)yyy=10;
+     y=y+yyy;
+     x=x+xxx;
+   
 
   
 
